@@ -1,4 +1,4 @@
-name: "Release GitHub Repository Release Action"
+name: Repository Release"
 
 on:
   workflow_dispatch:
