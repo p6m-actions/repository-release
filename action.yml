@@ -1,0 +1,162 @@
+name: "GitHub Repository Release Action"
+description: "Creates and manages versioned releases for GitHub Repositories"
+author: jimmie@ybor.ai
+
+inputs:
+  release_type:
+    description: "Type of release (minor_release or major_branch)"
+    required: true
+    default: "minor_release"
+  github_token:
+    description: "GitHub token for creating releases and tags"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Detect Version Line
+      id: detect_version
+      shell: bash
+      run: |
+        # Check if .version-line file exists
+        if [ -f ".version-line" ]; then
+          MAJOR_VERSION=$(cat .version-line | tr -d '[:space:]')
+          echo "Version line file found with major version: $MAJOR_VERSION"
+        else
+          # Default to version 1 if file doesn't exist
+          MAJOR_VERSION="1"
+          echo "No version line file found, defaulting to major version: $MAJOR_VERSION"
+          echo "$MAJOR_VERSION" > .version-line
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .version-line
+          git commit -m "Initialize .version-line file with default major version 1"
+          git push origin HEAD
+        fi
+
+        # Get current branch name
+        BRANCH_NAME=${GITHUB_REF#refs/heads/}
+        echo "Current branch: $BRANCH_NAME"
+
+        # Check if this is a legacy v{number}-dev branch
+        if [[ "$BRANCH_NAME" =~ ^v[0-9]+-dev$ ]]; then
+          LEGACY_VERSION=$(echo $BRANCH_NAME | sed 's/v\([0-9]*\)-dev/\1/')
+          if [ "$MAJOR_VERSION" != "$LEGACY_VERSION" ]; then
+            echo "::warning::Branch name ($BRANCH_NAME) suggests major version $LEGACY_VERSION but .version-line contains $MAJOR_VERSION"
+          fi
+          echo "is_legacy_branch=true" >> $GITHUB_OUTPUT
+        else
+          echo "is_legacy_branch=false" >> $GITHUB_OUTPUT
+        fi
+
+        echo "major_version=$MAJOR_VERSION" >> $GITHUB_OUTPUT
+        echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+    - name: Create Variables
+      id: vars
+      shell: bash
+      run: |
+        # Check if this is a major branch operation on a legacy branch
+        if [[ "${{ steps.detect_version.outputs.is_legacy_branch }}" == "true" && "${{ inputs.release_type }}" == "major_branch" ]]; then
+          echo "::error::Creating a major branch from a legacy branch is not supported. Please use the main branch for creating new major branches."
+          exit 1
+        fi
+
+        # Get latest minor version for this major version
+        LATEST_MINOR=$(git tag -l "v${{ steps.detect_version.outputs.major_version }}.*" | sort -V | tail -n 1)
+
+        # Determine new version based on release type
+        if [ "${{ inputs.release_type }}" = "major_branch" ]; then
+          # For a major version, increment the major version
+          NEW_MAJOR=$((${{ steps.detect_version.outputs.major_version }} + 1))
+          NEW_VERSION="v${NEW_MAJOR}.0"
+          echo "Creating new major version: $NEW_VERSION"
+          echo "target_major_version=${NEW_MAJOR}" >> $GITHUB_OUTPUT
+          echo "create_new_branch=true" >> $GITHUB_OUTPUT
+        else
+          # For a minor version update
+          if [ -z "$LATEST_MINOR" ]; then
+            # No existing versions, start with .0
+            NEW_VERSION="v${{ steps.detect_version.outputs.major_version }}.0"
+          else
+            # Increment minor version
+            MINOR_NUM=$(echo $LATEST_MINOR | sed "s/v${{ steps.detect_version.outputs.major_version }}\.\([0-9]*\)/\1/")
+            NEW_MINOR=$((MINOR_NUM + 1))
+            NEW_VERSION="v${{ steps.detect_version.outputs.major_version }}.${NEW_MINOR}"
+          fi
+          echo "target_major_version=${{ steps.detect_version.outputs.major_version }}" >> $GITHUB_OUTPUT
+          echo "create_new_branch=false" >> $GITHUB_OUTPUT
+        fi
+
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "Preparing for version: $NEW_VERSION"
+
+    - name: Create Tags
+      if: steps.vars.outputs.create_new_branch == 'false'
+      shell: bash
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+
+        echo "Creating new tag: ${{ steps.vars.outputs.new_version }}"
+        git tag -f ${{ steps.vars.outputs.new_version }}
+
+        # Update the major version tag
+        echo "Updating major version tag: v${{ steps.vars.outputs.target_major_version }} to point to ${{ steps.vars.outputs.new_version }}"
+        git tag -f v${{ steps.vars.outputs.target_major_version }} ${{ steps.vars.outputs.new_version }}
+
+        # Push using the provided token with force option to allow tag updates
+        git push --force --tags origin
+
+    - name: Create Major Branch
+      if: steps.vars.outputs.create_new_branch == 'true'
+      shell: bash
+      run: |
+        # Configure git
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+
+        # Create a new development branch for the previous major version
+        PREV_MAJOR="${{ steps.detect_version.outputs.major_version }}"
+        DEV_BRANCH="v${PREV_MAJOR}-dev"
+        echo "Creating new development branch for previous version: $DEV_BRANCH"
+
+        # Create the new branch from the current HEAD
+        git checkout -b $DEV_BRANCH
+
+        # Ensure .version-line in the dev branch has the correct version
+        echo "$PREV_MAJOR" > .version-line
+        git add .version-line
+        git commit -m "Set .version-line to $PREV_MAJOR for legacy branch"
+        git push origin $DEV_BRANCH
+
+        # Return to original branch (main)
+        git checkout ${{ steps.detect_version.outputs.branch_name }}
+
+        # Update .version-line in the main branch to the new major version
+        echo "${{ steps.vars.outputs.target_major_version }}" > .version-line
+        git add .version-line
+        git commit -m "Bump major version to ${{ steps.vars.outputs.target_major_version }}"
+        git push origin HEAD
+
+    - name: Create GitHub Release
+      if: steps.vars.outputs.create_new_branch == 'false'
+      shell: bash
+      run: |
+        # Use GitHub CLI to create a release
+        # Install GitHub CLI if not already installed
+        if ! command -v gh &> /dev/null; then
+          echo "Installing GitHub CLI..."
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh
+        fi
+
+        # Authenticate with GitHub CLI
+        echo "${{ inputs.github_token }}" | gh auth login --with-token
+
+        # Create the release
+        gh release create ${{ steps.vars.outputs.new_version }} \
+          --title "Release ${{ steps.vars.outputs.new_version }}" \
+          --generate-notes
