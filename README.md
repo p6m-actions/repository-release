@@ -1,6 +1,6 @@
 # Repository Release Action
 
-![GitHub Release](https://img.shields.io/github/v/release/p6m-actions/repository-release)
+![GitHub Release](https://img.shields.io/github/v/release/p6m-actions/repository-release?style=flat-square&label=Latest%20Release&color=blue)
 
 A GitHub Action that automates versioned releases for GitHub Actions and other
 repositories. This action creates and manages both minor releases and major
@@ -19,8 +19,7 @@ version branches following semantic versioning principles.
 ### Basic Usage
 
 ```yaml
-name: Release
-
+name: Release Repository
 on:
   workflow_dispatch:
     inputs:
@@ -32,16 +31,16 @@ on:
         options:
           - "minor_release"
           - "major_branch"
-
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Create Release
         uses: p6m-actions/repository-release@v1
         with:
