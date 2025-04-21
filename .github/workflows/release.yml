@@ -1,4 +1,4 @@
-name: Repository Release
+name: Release Repository
 
 on:
   workflow_dispatch:
