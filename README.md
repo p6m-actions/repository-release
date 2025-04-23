@@ -19,7 +19,7 @@ version branches following semantic versioning principles.
 ### Basic Usage
 
 ```yaml
-name: Release Archetype
+name: Release Repository
 on:
   workflow_dispatch:
     inputs:
