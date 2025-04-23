@@ -19,7 +19,7 @@ version branches following semantic versioning principles.
 ### Basic Usage
 
 ```yaml
-name: Release Repository
+name: Release Archetype
 on:
   workflow_dispatch:
     inputs:
@@ -34,13 +34,16 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+
     permissions:
       contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Create Release
         uses: p6m-actions/repository-release@v1
         with:
