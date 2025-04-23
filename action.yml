@@ -125,19 +125,30 @@ runs:
         git checkout -b $DEV_BRANCH
 
         # Ensure .version-line in the dev branch has the correct version
-        echo "$PREV_MAJOR" > .version-line
-        git add .version-line
-        git commit -m "Set .version-line to $PREV_MAJOR for legacy branch"
+        CURRENT_VERSION=$(cat .version-line 2>/dev/null || echo "")
+        if [ "$CURRENT_VERSION" != "$PREV_MAJOR" ]; then
+          echo "$PREV_MAJOR" > .version-line
+          git add .version-line
+          git commit -m "Set .version-line to $PREV_MAJOR for legacy branch"
+        else
+          echo "No change needed for .version-line in legacy branch (already set to $PREV_MAJOR)"
+        fi
         git push origin $DEV_BRANCH
 
         # Return to original branch (main)
         git checkout ${{ steps.detect_version.outputs.branch_name }}
 
         # Update .version-line in the main branch to the new major version
-        echo "${{ steps.vars.outputs.target_major_version }}" > .version-line
-        git add .version-line
-        git commit -m "Bump major version to ${{ steps.vars.outputs.target_major_version }}"
-        git push origin HEAD
+        CURRENT_VERSION=$(cat .version-line 2>/dev/null || echo "")
+        if [ "$CURRENT_VERSION" != "${{ steps.vars.outputs.target_major_version }}" ]; then
+          echo "${{ steps.vars.outputs.target_major_version }}" > .version-line
+          git add .version-line
+          git commit -m "Bump major version to ${{ steps.vars.outputs.target_major_version }}"
+          git push origin HEAD
+        else
+          echo "No change needed for .version-line in main branch (already set to ${{ steps.vars.outputs.target_major_version }})"
+          git push origin HEAD
+        fi
 
     - name: Create GitHub Release
       if: steps.vars.outputs.create_new_branch == 'false'
