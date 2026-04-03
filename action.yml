@@ -32,8 +32,6 @@ runs:
           MAJOR_VERSION="1"
           echo "No version line file found, defaulting to major version: $MAJOR_VERSION"
           echo "$MAJOR_VERSION" > .version-line
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
           git add .version-line
           git commit -m "Initialize .version-line file with default major version 1"
           git push origin HEAD
@@ -100,9 +98,6 @@ runs:
       if: steps.vars.outputs.create_new_branch == 'false'
       shell: bash
       run: |
-        git config --local user.email "${GIT_COMMITTER_EMAIL:-github-actions[bot]@users.noreply.github.com}"
-        git config --local user.name "${GIT_COMMITTER_NAME:-github-actions[bot]}"
-
         echo "Creating new tag: ${{ steps.vars.outputs.new_version }}"
         git tag -f ${{ steps.vars.outputs.new_version }}
 
@@ -117,10 +112,6 @@ runs:
       if: steps.vars.outputs.create_new_branch == 'true'
       shell: bash
       run: |
-        # Configure git
-        git config --local user.email "${GIT_COMMITTER_EMAIL:-github-actions[bot]@users.noreply.github.com}"
-        git config --local user.name "${GIT_COMMITTER_NAME:-github-actions[bot]}"
-
         # Create a new development branch for the previous major version
         PREV_MAJOR="${{ steps.detect_version.outputs.major_version }}"
         DEV_BRANCH="v${PREV_MAJOR}-dev"
