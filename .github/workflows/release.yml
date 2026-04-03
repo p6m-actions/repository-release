@@ -19,6 +19,7 @@ jobs:
 
     permissions:
       contents: write
+      id-token: write
 
     steps:
       - name: Checkout code
@@ -26,8 +27,14 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history and tags
 
+      # Dogfooding: uses token-exchange@main since token-exchange relies on repository-release
+      - name: Get P6M YBOR Token
+        id: token
+        uses: p6m-actions/token-exchange@main
+
+      # Dogfooding: uses this action (./) to release itself
       - name: Run GitHub Repository Release Action
-        uses: ./ # Uses the action from the repository itself
+        uses: ./
         with:
           release_type: ${{ github.event.inputs.release_type }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.token.outputs.github_token }}
