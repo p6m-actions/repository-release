@@ -169,9 +169,9 @@ runs:
           sudo apt install gh
         fi
 
-        # Use explicit token if provided, otherwise fall back to GH_TOKEN env var
+        # Authenticate with GitHub CLI
         if [ -n "${{ inputs.github_token }}" ]; then
-          export GH_TOKEN="${{ inputs.github_token }}"
+          echo "${{ inputs.github_token }}" | gh auth login --with-token
         fi
 
         # Create the release
