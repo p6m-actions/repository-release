@@ -171,7 +171,7 @@ runs:
 
         # Authenticate with GitHub CLI
         if [ -n "${{ inputs.github_token }}" ]; then
-          echo "${{ inputs.github_token }}" | gh auth login --with-token
+          export GH_TOKEN="${{ inputs.github_token }}"
         fi
 
         # Create the release
