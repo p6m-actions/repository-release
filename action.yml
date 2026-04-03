@@ -16,7 +16,7 @@ runs:
   steps:
     - name: Token Exchange
       id: token_exchange
-      if: ${{ inputs.github_token == "" }}
+      if: if: inputs.github_token == ''
       uses: p6m-actions/token-exchange@v2
 
     - name: Detect Version Line
