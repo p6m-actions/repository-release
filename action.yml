@@ -14,6 +14,11 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Token Exchange
+      id: token_exchange
+      if: ${{ inputs.github_token == "" }}
+      uses: p6m-actions/token-exchange@v2
+
     - name: Detect Version Line
       id: detect_version
       shell: bash
@@ -95,8 +100,8 @@ runs:
       if: steps.vars.outputs.create_new_branch == 'false'
       shell: bash
       run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
+        git config --local user.email "${GIT_COMMITTER_EMAIL:-github-actions[bot]@users.noreply.github.com}"
+        git config --local user.name "${GIT_COMMITTER_NAME:-github-actions[bot]}"
 
         echo "Creating new tag: ${{ steps.vars.outputs.new_version }}"
         git tag -f ${{ steps.vars.outputs.new_version }}
@@ -113,8 +118,8 @@ runs:
       shell: bash
       run: |
         # Configure git
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
+        git config --local user.email "${GIT_COMMITTER_EMAIL:-github-actions[bot]@users.noreply.github.com}"
+        git config --local user.name "${GIT_COMMITTER_NAME:-github-actions[bot]}"
 
         # Create a new development branch for the previous major version
         PREV_MAJOR="${{ steps.detect_version.outputs.major_version }}"
@@ -164,8 +169,10 @@ runs:
           sudo apt install gh
         fi
 
-        # Authenticate with GitHub CLI
-        echo "${{ inputs.github_token }}" | gh auth login --with-token
+        # Use explicit token if provided, otherwise fall back to GH_TOKEN env var
+        if [ -n "${{ inputs.github_token }}" ]; then
+          export GH_TOKEN="${{ inputs.github_token }}"
+        fi
 
         # Create the release
         gh release create ${{ steps.vars.outputs.new_version }} \

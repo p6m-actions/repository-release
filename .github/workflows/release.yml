@@ -19,6 +19,7 @@ jobs:
 
     permissions:
       contents: write
+      id-token: write
 
     steps:
       - name: Checkout code
@@ -26,8 +27,10 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history and tags
 
+      - name: Get P6M YBOR Token
+        uses: p6m-actions/token-exchange@main
+
       - name: Run GitHub Repository Release Action
-        uses: ./ # Uses the action from the repository itself
+        uses: ./
         with:
           release_type: ${{ github.event.inputs.release_type }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
