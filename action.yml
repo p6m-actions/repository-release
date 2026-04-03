@@ -32,6 +32,10 @@ runs:
           MAJOR_VERSION="1"
           echo "No version line file found, defaulting to major version: $MAJOR_VERSION"
           echo "$MAJOR_VERSION" > .version-line
+          if [ -z "$(git config user.name)" ]; then
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          fi
           git add .version-line
           git commit -m "Initialize .version-line file with default major version 1"
           git push origin HEAD
@@ -112,6 +116,11 @@ runs:
       if: steps.vars.outputs.create_new_branch == 'true'
       shell: bash
       run: |
+        if [ -z "$(git config user.name)" ]; then
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        fi
+
         # Create a new development branch for the previous major version
         PREV_MAJOR="${{ steps.detect_version.outputs.major_version }}"
         DEV_BRANCH="v${PREV_MAJOR}-dev"
