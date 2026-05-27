@@ -22,8 +22,8 @@ runs:
         git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n "x-access-token:${{ inputs.github_token }}" | base64)"
         export 'GITHUB_TOKEN=${{ inputs.github_token }}' >> $GITHUB_ENV
         export 'GH_TOKEN=${{ inputs.github_token }}' >> $GITHUB_ENV
-        git config user.name "$(gh api user --jq .login)"
-        git config user.email "$(gh api user --jq .email)"
+        git config user.name "$(gh api user --jq .login || echo 'GitHub Actions')"
+        git config user.email "$(gh api user --jq .email || echo 'actions@github.com')"
 
     - name: Token Exchange
       id: token_exchange
