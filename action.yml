@@ -99,11 +99,11 @@ runs:
         git config --local user.name "github-actions[bot]"
 
         echo "Creating new tag: ${{ steps.vars.outputs.new_version }}"
-        git tag -f ${{ steps.vars.outputs.new_version }}
+        git tag -f -a ${{ steps.vars.outputs.new_version }} -m "Release ${{ steps.vars.outputs.new_version }}"
 
         # Update the major version tag
         echo "Updating major version tag: v${{ steps.vars.outputs.target_major_version }} to point to ${{ steps.vars.outputs.new_version }}"
-        git tag -f v${{ steps.vars.outputs.target_major_version }} ${{ steps.vars.outputs.new_version }}
+        git tag -f -a v${{ steps.vars.outputs.target_major_version }} ${{ steps.vars.outputs.new_version }}^{} -m "Release ${{ steps.vars.outputs.new_version }}"
 
         # Push using the provided token with force option to allow tag updates
         git push --force --tags origin
