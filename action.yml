@@ -19,9 +19,20 @@ runs:
       shell: bash
       run: |
         git config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
-        git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n "x-access-token:${{ inputs.github_token }}" | base64)"
-        export 'GITHUB_TOKEN=${{ inputs.github_token }}' >> $GITHUB_ENV
-        export 'GH_TOKEN=${{ inputs.github_token }}' >> $GITHUB_ENV
+        # `base64` wraps its output at 76 columns, and "x-access-token:<token>" encodes to more than
+        # that once the token passes 43 characters — which GitHub's tokens now do. The wrap put a
+        # newline INSIDE the Authorization header, so every push died with
+        # "fatal: unable to access ...: Failed sending HTTP request". It looked intermittent only
+        # because it depends on the token's length. `tr -d '\n'` keeps it on one line (portable
+        # where `base64 -w 0` is not).
+        git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n "x-access-token:${{ inputs.github_token }}" | base64 | tr -d '\n')"
+        # `export VAR=… >> $GITHUB_ENV` exports into THIS shell and redirects export's empty stdout
+        # to the file, so nothing was ever written and later steps saw no token. Write the file.
+        echo 'GITHUB_TOKEN=${{ inputs.github_token }}' >> $GITHUB_ENV
+        echo 'GH_TOKEN=${{ inputs.github_token }}' >> $GITHUB_ENV
+        # $GITHUB_ENV only reaches LATER steps, so export it here as well for the `gh` calls below —
+        # without it they were unauthenticated and the identity always fell back to the defaults.
+        export GH_TOKEN='${{ inputs.github_token }}'
         git config user.name "$(gh api user --jq .login || echo 'GitHub Actions')"
         git config user.email "$(gh api user --jq .email || echo 'actions@github.com')"
 
